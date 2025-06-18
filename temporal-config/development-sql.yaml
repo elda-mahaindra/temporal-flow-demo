@@ -1,0 +1,31 @@
+# Development configuration for Temporal server with SQL backend
+system.forceSearchAttributesCacheRefreshOnRead:
+  - value: true
+    constraints: {}
+
+system.enableCrossNamespaceCommands:
+  - value: true
+    constraints: {}
+
+system.enableReadHistoryFromArchival:
+  - value: true
+    constraints: {}
+
+# Enhance development debugging
+system.enableTaskInfoLogByDomainID:
+  - value: true
+    constraints: {}
+
+# Allow higher limits for development
+limit.maxIDLength:
+  - value: 1000
+    constraints: {}
+
+# Development-friendly timeouts
+system.standardVisibilityPersistenceMaxReadQPS:
+  - value: 9000
+    constraints: {}
+
+system.standardVisibilityPersistenceMaxWriteQPS:
+  - value: 9000
+    constraints: {}

@@ -1,0 +1,132 @@
+services:
+  postgres:
+    container_name: postgres
+    image: postgres
+    environment:
+      - POSTGRES_DB=temporal_flow_demo_db
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=changeme
+    volumes:
+      - postgres-data:/var/lib/postgresql/data/
+      - ./_init/postgres:/docker-entrypoint-initdb.d
+    ports:
+      - "5432:5432"
+    restart: unless-stopped
+    networks:
+      - temporal-flow-demo
+
+  # Temporal services
+  temporal-server:
+    container_name: temporal-server
+    depends_on:
+      - postgres
+    environment:
+      - DB=postgresql
+      - DB_PORT=5432
+      - POSTGRES_USER=postgres
+      - POSTGRES_PWD=changeme
+      - POSTGRES_SEEDS=postgres
+      - DYNAMIC_CONFIG_FILE_PATH=config/dynamicconfig/development-sql.yaml
+    image: temporalio/auto-setup:1.22.4
+    networks:
+      - temporal-flow-demo
+    ports:
+      - "7233:7233"
+    volumes:
+      - ./temporal-config:/etc/temporal/config/dynamicconfig
+    restart: unless-stopped
+
+  temporal-admin-tools:
+    container_name: temporal-admin-tools
+    depends_on:
+      - temporal-server
+    environment:
+      - TEMPORAL_ADDRESS=temporal-server:7233
+      - TEMPORAL_CLI_ADDRESS=temporal-server:7233
+    image: temporalio/admin-tools:1.22.4
+    networks:
+      - temporal-flow-demo
+    stdin_open: true
+    tty: true
+    restart: unless-stopped
+
+  temporal-ui:
+    container_name: temporal-ui
+    depends_on:
+      - temporal-server
+    environment:
+      - TEMPORAL_ADDRESS=temporal-server:7233
+      - TEMPORAL_CORS_ORIGINS=http://localhost:3000
+    image: temporalio/ui:2.21.3
+    networks:
+      - temporal-flow-demo
+    ports:
+      - "8080:8080"
+    restart: unless-stopped
+
+  svc-transaction:
+    build: ./svc-transaction
+    image: svc-transaction
+    container_name: svc-transaction
+    restart: unless-stopped
+    volumes:
+      - ./svc-transaction/config.json:/app/config.json
+    depends_on:
+      - postgres
+      - temporal-server
+    networks:
+      - temporal-flow-demo
+
+  svc-balance:
+    build: ./svc-balance
+    image: svc-balance
+    container_name: svc-balance
+    restart: unless-stopped
+    volumes:
+      - ./svc-balance/config.json:/app/config.json
+    depends_on:
+      - postgres
+      - temporal-server
+    networks:
+      - temporal-flow-demo
+
+  flowngine:
+    build: ./flowngine
+    image: flowngine
+    container_name: flowngine
+    restart: unless-stopped
+    ports:
+      - "50051:50051"
+    volumes:
+      - ./flowngine/config.json:/app/config.json
+    depends_on:
+      - svc-transaction
+      - svc-balance
+      - temporal-server
+    networks:
+      - temporal-flow-demo
+
+  api-gateway:
+    build: ./api-gateway
+    image: api-gateway
+    container_name: api-gateway
+    restart: unless-stopped
+    ports:
+      - "4000:4000"
+    volumes:
+      - ./api-gateway/config.json:/app/config.json
+    depends_on:
+      - svc-transaction
+      - svc-balance
+      - flowngine
+      - temporal-server
+    networks:
+      - temporal-flow-demo
+
+networks:
+  temporal-flow-demo:
+    driver: bridge
+    name: temporal-flow-demo
+
+volumes:
+  postgres-data:
