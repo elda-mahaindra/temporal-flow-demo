@@ -1,0 +1,91 @@
+syntax = "proto3";
+
+package pb;
+
+option go_package="./pb";
+
+import "google/protobuf/timestamp.proto";
+
+// FlowEngine service handles workflow orchestration
+service FlowEngine {
+  // ExecuteTransfer starts a transfer workflow
+  rpc ExecuteTransfer(ExecuteTransferRequest) returns (ExecuteTransferResponse);
+
+  // GetTransferStatus gets the current status of a transfer
+  rpc GetTransferStatus(GetTransferStatusRequest) returns (GetTransferStatusResponse);
+
+  // CancelTransfer attempts to cancel a pending transfer
+  rpc CancelTransfer(CancelTransferRequest) returns (CancelTransferResponse);
+}
+
+// Transfer request message
+message ExecuteTransferRequest {
+  string from_account = 1;
+  string to_account = 2;
+  int64 amount = 3;
+  string currency = 4;
+  string description = 5;
+  string reference_id = 6;
+  string request_id = 7;
+}
+
+// Transfer response message
+message ExecuteTransferResponse {
+  string transaction_id = 1;
+  TransferStatus status = 2;
+  string workflow_id = 3;
+  string run_id = 4;
+  google.protobuf.Timestamp created_at = 5;
+}
+
+// Status request message
+message GetTransferStatusRequest {
+  string transaction_id = 1;
+}
+
+// Status response message
+message GetTransferStatusResponse {
+  string transaction_id = 1;
+  TransferStatus status = 2;
+  string from_account = 3;
+  string to_account = 4;
+  int64 amount = 5;
+  string currency = 6;
+  string description = 7;
+  string reference_id = 8;
+  google.protobuf.Timestamp created_at = 9;
+  google.protobuf.Timestamp completed_at = 10;
+  WorkflowExecution workflow_execution = 11;
+  string error_message = 12;
+}
+
+// Cancel request message
+message CancelTransferRequest {
+  string transaction_id = 1;
+  string reason = 2;
+}
+
+// Cancel response message
+message CancelTransferResponse {
+  bool success = 1;
+  string message = 2;
+}
+
+// Transfer status enum
+enum TransferStatus {
+  TRANSFER_STATUS_UNSPECIFIED = 0;
+  TRANSFER_STATUS_PENDING = 1;
+  TRANSFER_STATUS_PROCESSING = 2;
+  TRANSFER_STATUS_COMPLETED = 3;
+  TRANSFER_STATUS_FAILED = 4;
+  TRANSFER_STATUS_COMPENSATED = 5;
+  TRANSFER_STATUS_CANCELLED = 6;
+}
+
+// Workflow execution details
+message WorkflowExecution {
+  string workflow_id = 1;
+  string run_id = 2;
+  string status = 3;
+}
+
