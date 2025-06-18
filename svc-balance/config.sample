@@ -1,0 +1,14 @@
+{
+  "app": {
+    "name": "svc-balance"
+  },
+  "db": {
+    "postgres": {
+      "connection_string": "postgresql://postgres:changeme@postgres:5432/temporal_flow_demo_db",
+      "pool": {
+        "max_conns": 10,
+        "min_conns": 1
+      }
+    }
+  }
+}
