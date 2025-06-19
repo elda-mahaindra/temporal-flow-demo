@@ -8,8 +8,9 @@ import (
 
 // Config holds all configuration for the application
 type Config struct {
-	App App `mapstructure:"app"`
-	DB  DB  `mapstructure:"db"`
+	App      App      `mapstructure:"app"`
+	DB       DB       `mapstructure:"db"`
+	Temporal Temporal `mapstructure:"temporal"`
 }
 
 // LoadConfig reads configuration from file or environment variables.

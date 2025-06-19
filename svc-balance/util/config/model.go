@@ -21,3 +21,11 @@ type PostgresConfig struct {
 type DB struct {
 	Postgres PostgresConfig `mapstructure:"postgres"`
 }
+
+// Temporal config
+
+type Temporal struct {
+	HostPort  string `mapstructure:"host_port"`
+	Namespace string `mapstructure:"namespace"`
+	TaskQueue string `mapstructure:"task_queue"`
+}

@@ -10,5 +10,10 @@
         "min_conns": 1
       }
     }
+  },
+  "temporal": {
+    "host_port": "temporal-server:7233",
+    "namespace": "default",
+    "task_queue": "balance-task-queue"
   }
 }

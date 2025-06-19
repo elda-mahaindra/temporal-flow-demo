@@ -8,6 +8,7 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/sirupsen/logrus"
+	"go.temporal.io/sdk/client"
 )
 
 func createPostgresPool(
@@ -54,4 +55,28 @@ func createPostgresPool(
 	logger.Info("postgres pool created successfully")
 
 	return pool, nil
+}
+
+func createTemporalClient(
+	logger *logrus.Logger,
+	temporalConfig config.Temporal,
+) (client.Client, error) {
+	const op = "main.createTemporalClient"
+
+	temporalClient, err := client.Dial(client.Options{
+		HostPort:  temporalConfig.HostPort,
+		Namespace: temporalConfig.Namespace,
+	})
+	if err != nil {
+		err = fmt.Errorf("failed to create Temporal client: %w", err)
+
+		logger.WithFields(logrus.Fields{
+			"[op]":  op,
+			"error": err.Error(),
+		}).Error()
+
+		return nil, err
+	}
+
+	return temporalClient, nil
 }
