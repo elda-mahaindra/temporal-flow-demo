@@ -3,7 +3,11 @@ package service
 import (
 	"context"
 	"fmt"
+	"time"
 
+	"api-gateway/adapter/flowngine_adapter/pb"
+
+	"github.com/google/uuid"
 	"github.com/sirupsen/logrus"
 )
 
@@ -44,18 +48,139 @@ func (service *Service) Transfer(ctx context.Context, params *TransferParams) (r
 		"params": fmt.Sprintf("%+v", params),
 	})
 
-	logger.Info()
+	logger.Info("Initiating transfer through FlowEngine")
+
+	// Generate request ID for idempotency
+	requestID := uuid.New().String()
+
+	// Set default values for optional fields
+	description := ""
+	if params.Description != nil {
+		description = *params.Description
+	}
+
+	referenceID := ""
+	if params.ReferenceID != nil {
+		referenceID = *params.ReferenceID
+	}
+
+	// Create FlowEngine request
+	flowEngineRequest := &pb.ExecuteTransferRequest{
+		FromAccount: params.FromAccount,
+		ToAccount:   params.ToAccount,
+		Amount:      int64(params.Amount),
+		Currency:    params.Currency,
+		Description: description,
+		ReferenceId: referenceID,
+		RequestId:   requestID,
+	}
+
+	// Call FlowEngine adapter
+	flowEngineResponse, err := service.flowngineAdapter.ExecuteTransfer(ctx, flowEngineRequest)
+	if err != nil {
+		err = fmt.Errorf("failed to execute transfer via FlowEngine: %w", err)
+
+		logger.WithError(err).Error()
+
+		return nil, err
+	}
+
+	// Convert status enum to string
+	statusString := flowEngineResponse.Status.String()
+
+	// Convert timestamp to string
+	createdAtString := flowEngineResponse.CreatedAt.AsTime().Format(time.RFC3339)
+
+	// Estimate completion time (adding 2 minutes as default)
+	estimatedCompletion := flowEngineResponse.CreatedAt.AsTime().Add(2 * time.Minute).Format(time.RFC3339)
 
 	// Initialize results
-	results = &TransferResults{}
+	results = &TransferResults{
+		TransactionID:       flowEngineResponse.TransactionId,
+		Status:              statusString,
+		FromAccount:         params.FromAccount,
+		ToAccount:           params.ToAccount,
+		Amount:              params.Amount,
+		Currency:            params.Currency,
+		Description:         description,
+		ReferenceID:         referenceID,
+		CreatedAt:           createdAtString,
+		EstimatedCompletion: estimatedCompletion,
+		WorkflowID:          flowEngineResponse.WorkflowId,
+		RunID:               flowEngineResponse.RunId,
+	}
 
-	// TODO: Implement transfer
+	// For sync mode, wait for completion
+	if params.WaitForCompletion {
+		logger.Info("Waiting for transfer completion (sync mode)")
 
-	// TODO: Set results
+		// Poll for status updates until completion or timeout
+		ticker := time.NewTicker(500 * time.Millisecond)
+		defer ticker.Stop()
 
-	logger.WithField("results", fmt.Sprintf("%+v", results)).Info()
+		timeout := time.After(5 * time.Minute) // 5 minute timeout for sync mode
 
-	return
+		for {
+			select {
+			case <-ctx.Done():
+				return nil, ctx.Err()
+			case <-timeout:
+				logger.Warn("Transfer completion timeout reached")
+				results.ErrorMessage = "Transfer completion timeout reached"
+				return results, nil
+			case <-ticker.C:
+				// Check status
+				statusResponse, err := service.checkTransferStatus(ctx, flowEngineResponse.TransactionId)
+				if err != nil {
+					logger.WithError(err).Warn("Failed to check transfer status")
+					continue
+				}
+
+				// Update status
+				results.Status = statusResponse.Status.String()
+
+				// Check if completed (success or failure)
+				if statusResponse.Status == pb.TransferStatus_TRANSFER_STATUS_COMPLETED ||
+					statusResponse.Status == pb.TransferStatus_TRANSFER_STATUS_FAILED ||
+					statusResponse.Status == pb.TransferStatus_TRANSFER_STATUS_COMPENSATED ||
+					statusResponse.Status == pb.TransferStatus_TRANSFER_STATUS_CANCELLED {
+
+					// Set completion time
+					if statusResponse.CompletedAt != nil {
+						completedAt := statusResponse.CompletedAt.AsTime().Format(time.RFC3339)
+						results.CompletedAt = &completedAt
+					}
+
+					// Set error message if failed
+					if statusResponse.ErrorMessage != "" {
+						results.ErrorMessage = statusResponse.ErrorMessage
+					}
+
+					// Set compensation flag
+					if statusResponse.Status == pb.TransferStatus_TRANSFER_STATUS_COMPENSATED {
+						compensated := true
+						results.CompensationApplied = &compensated
+					}
+
+					logger.WithField("final_status", statusResponse.Status.String()).Info("Transfer completed")
+					return results, nil
+				}
+			}
+		}
+	}
+
+	logger.WithField("results", fmt.Sprintf("%+v", results)).Info("Transfer initiated successfully")
+
+	return results, nil
+}
+
+// checkTransferStatus is a helper method to poll transfer status
+func (service *Service) checkTransferStatus(ctx context.Context, transactionID string) (*pb.GetTransferStatusResponse, error) {
+	statusRequest := &pb.GetTransferStatusRequest{
+		TransactionId: transactionID,
+	}
+
+	return service.flowngineAdapter.GetTransferStatus(ctx, statusRequest)
 }
 
 type GetTransferParams struct {
@@ -88,16 +213,52 @@ func (service *Service) GetTransfer(ctx context.Context, params *GetTransferPara
 		"params": fmt.Sprintf("%+v", params),
 	})
 
-	logger.Info()
+	logger.Info("Getting transfer status from FlowEngine")
+
+	// Create FlowEngine request
+	statusRequest := &pb.GetTransferStatusRequest{
+		TransactionId: params.TransactionID,
+	}
+
+	// Call FlowEngine adapter
+	statusResponse, err := service.flowngineAdapter.GetTransferStatus(ctx, statusRequest)
+	if err != nil {
+		err = fmt.Errorf("failed to get transfer status from FlowEngine: %w", err)
+
+		logger.WithError(err).Error()
+
+		return nil, err
+	}
+
+	// Convert timestamps to strings
+	createdAt := statusResponse.CreatedAt.AsTime().Format(time.RFC3339)
+	completedAt := ""
+	if statusResponse.CompletedAt != nil {
+		completedAt = statusResponse.CompletedAt.AsTime().Format(time.RFC3339)
+	}
 
 	// Initialize results
-	results = &GetTransferResults{}
+	results = &GetTransferResults{
+		TransactionID: statusResponse.TransactionId,
+		Status:        statusResponse.Status.String(),
+		FromAccount:   statusResponse.FromAccount,
+		ToAccount:     statusResponse.ToAccount,
+		Amount:        int(statusResponse.Amount),
+		Currency:      statusResponse.Currency,
+		Description:   statusResponse.Description,
+		ReferenceID:   statusResponse.ReferenceId,
+		CreatedAt:     createdAt,
+		CompletedAt:   completedAt,
+	}
 
-	// TODO: Implement get transfer
+	// Set workflow execution details
+	if statusResponse.WorkflowExecution != nil {
+		results.WorkflowExecution.WorkflowID = statusResponse.WorkflowExecution.WorkflowId
+		results.WorkflowExecution.RunID = statusResponse.WorkflowExecution.RunId
+		results.WorkflowExecution.Status = statusResponse.WorkflowExecution.Status
+	}
 
-	// TODO: Set results
+	logger.WithField("results", fmt.Sprintf("%+v", results)).Info("Transfer status retrieved successfully")
 
-	logger.WithField("results", fmt.Sprintf("%+v", results)).Info()
-
-	return
+	return results, nil
 }

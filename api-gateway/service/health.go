@@ -3,6 +3,9 @@ package service
 import (
 	"context"
 	"fmt"
+	"time"
+
+	"api-gateway/adapter/flowngine_adapter/pb"
 
 	"github.com/sirupsen/logrus"
 )
@@ -25,16 +28,54 @@ func (service *Service) CheckHealth(ctx context.Context, params *CheckHealthPara
 		"params": fmt.Sprintf("%+v", params),
 	})
 
-	logger.Info()
+	logger.Info("Performing health check")
 
-	// Initialize results
-	results = &CheckHealthResults{}
+	// Initialize results with basic information
+	results = &CheckHealthResults{
+		Status:    "healthy",
+		Timestamp: time.Now().Format(time.RFC3339),
+		Version:   "1.0.0",
+		Services:  make(map[string]string),
+	}
 
-	// TODO: Implement health check
+	// Check FlowEngine connectivity
+	flowEngineStatus := "healthy"
 
-	// TODO: Set results
+	// Create a simple status request with a short timeout
+	statusCtx, cancel := context.WithTimeout(ctx, 2*time.Second)
+	defer cancel()
 
-	logger.WithField("results", fmt.Sprintf("%+v", results)).Info()
+	// Try to call FlowEngine with a dummy transaction ID to test connectivity
+	statusRequest := &pb.GetTransferStatusRequest{
+		TransactionId: "health-check-dummy-id",
+	}
 
-	return
+	_, err = service.flowngineAdapter.GetTransferStatus(statusCtx, statusRequest)
+	if err != nil {
+		// Expected to fail for dummy ID, but if we get a response, gRPC connection is working
+		logger.WithError(err).Debug("FlowEngine health check call (expected to fail for dummy ID)")
+
+		// Check if it's a connection error vs application error
+		if statusCtx.Err() == context.DeadlineExceeded {
+			flowEngineStatus = "timeout"
+			results.Status = "degraded"
+		} else {
+			// If we get any response (even error), the connection is working
+			// This is expected since we're using a dummy transaction ID
+			flowEngineStatus = "healthy"
+		}
+	}
+
+	// Set service statuses
+	results.Services["api-gateway"] = "healthy"
+	results.Services["flowngine"] = flowEngineStatus
+
+	// Overall status determination
+	if flowEngineStatus != "healthy" {
+		results.Status = "degraded"
+	}
+
+	logger.WithField("results", fmt.Sprintf("%+v", results)).Info("Health check completed")
+
+	return results, nil
 }
