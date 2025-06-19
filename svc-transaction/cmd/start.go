@@ -8,6 +8,7 @@ import (
 	"os/signal"
 
 	"svc-transaction/activity"
+	"svc-transaction/api"
 	"svc-transaction/service"
 	"svc-transaction/store"
 	"svc-transaction/util/config"
@@ -106,6 +107,12 @@ func start() {
 			cancel()
 		}
 	}()
+
+	// --- Init api layer ---
+	restApi := api.NewApi(logger, transactionService)
+
+	// --- Run servers ---
+	runRestServer(config.App.Port, restApi)
 
 	// --- Wait for signal ---
 	ch := make(chan os.Signal, 1)

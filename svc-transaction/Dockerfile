@@ -36,5 +36,8 @@ COPY --from=build-env /build/config.json config.json
 # Note: config.json can also be mounted via docker-compose volume
 # This allows for different configs (local vs docker) without rebuilding
 
+# Expose the port the application will run on
+EXPOSE 4001
+
 # Run the executable with 'start' argument
 ENTRYPOINT [ "./main", "start" ]

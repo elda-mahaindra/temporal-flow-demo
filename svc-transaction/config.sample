@@ -1,6 +1,8 @@
 {
   "app": {
-    "name": "svc-transaction"
+    "name": "svc-transaction",
+    "host": "0.0.0.0",
+    "port": 4001
   },
   "db": {
     "postgres": {
