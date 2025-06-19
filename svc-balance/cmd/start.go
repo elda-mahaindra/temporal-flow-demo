@@ -8,6 +8,7 @@ import (
 	"os/signal"
 
 	"svc-balance/activity"
+	"svc-balance/api"
 	"svc-balance/service"
 	"svc-balance/store"
 	"svc-balance/util/config"
@@ -106,6 +107,12 @@ func start() {
 			cancel()
 		}
 	}()
+
+	// --- Init api layer ---
+	restApi := api.NewApi(logger, balanceService)
+
+	// --- Run servers ---
+	runRestServer(config.App.Port, restApi)
 
 	// --- Wait for signal ---
 	ch := make(chan os.Signal, 1)
