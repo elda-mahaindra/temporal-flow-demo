@@ -2,6 +2,6 @@ sqlc:
 	cd store && sqlc generate
 
 test:
-	go test ./service -v
+	go test ./service ./activity -v
 
 .PHONY: sqlc test
