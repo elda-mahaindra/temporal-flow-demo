@@ -29,7 +29,7 @@ func (api *Api) CancelTransfer(ctx context.Context, request *pb.CancelTransferRe
 		Reason:        request.Reason,
 	}
 
-	_, err := api.service.CancelTransfer(ctx, params)
+	results, err := api.service.CancelTransfer(ctx, params)
 	if err != nil {
 		logger.WithError(err).Error()
 
@@ -37,8 +37,8 @@ func (api *Api) CancelTransfer(ctx context.Context, request *pb.CancelTransferRe
 	}
 
 	// Set response
-	response.Success = true
-	response.Message = "Transfer cancelled successfully"
+	response.Success = results.Success
+	response.Message = results.Message
 
 	logger.WithField("request", fmt.Sprintf("%+v", request)).Info()
 

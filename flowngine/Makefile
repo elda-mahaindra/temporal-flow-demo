@@ -4,4 +4,7 @@ genpb:
 start:
 	go run cmd/*.go start
 
+test:
+	go test ./service -v
+
 .PHONY: start

@@ -3,5 +3,9 @@
     "name": "flowngine",
     "host": "0.0.0.0",
     "port": 50051
+  },
+  "temporal": {
+    "host": "temporal-server",
+    "port": 7233
   }
 }

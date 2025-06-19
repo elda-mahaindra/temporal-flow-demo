@@ -7,3 +7,10 @@ type App struct {
 	Host string `mapstructure:"host"` // Bind address (0.0.0.0 for listening)
 	Port int    `mapstructure:"port"`
 }
+
+// Temporal config
+
+type Temporal struct {
+	Host string `mapstructure:"host"`
+	Port int    `mapstructure:"port"`
+}

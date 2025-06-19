@@ -42,8 +42,22 @@ func start() {
 		"config": fmt.Sprintf("%+v", config),
 	}).Infof("Starting '%s' service ...", config.App.Name)
 
+	// --- Init Temporal client ---
+	temporalClient, err := createTemporalClient(config.Temporal)
+	if err != nil {
+		logger.WithFields(logrus.Fields{
+			"[op]":  op,
+			"error": err.Error(),
+		}).Error()
+
+		os.Exit(1)
+	}
+	defer temporalClient.Close()
+
+	logger.Info("🎉 Temporal client initialized - ready for workflow orchestration!")
+
 	// --- Init service layer ---
-	service := service.NewService(logger)
+	service := service.NewService(logger, temporalClient)
 
 	// --- Init api layer ---
 	api := api.NewApi(logger, service)
