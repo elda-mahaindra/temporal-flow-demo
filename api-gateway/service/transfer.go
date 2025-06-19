@@ -8,12 +8,13 @@ import (
 )
 
 type TransferParams struct {
-	FromAccount string  `json:"from_account"`
-	ToAccount   string  `json:"to_account"`
-	Amount      int     `json:"amount"`
-	Currency    string  `json:"currency"`
-	Description *string `json:"description"`
-	ReferenceID *string `json:"reference_id"`
+	FromAccount       string  `json:"from_account"`
+	ToAccount         string  `json:"to_account"`
+	Amount            int     `json:"amount"`
+	Currency          string  `json:"currency"`
+	Description       *string `json:"description"`
+	ReferenceID       *string `json:"reference_id"`
+	WaitForCompletion bool    `json:"wait_for_completion"` // Sync vs async mode
 }
 
 type TransferResults struct {
@@ -27,6 +28,12 @@ type TransferResults struct {
 	ReferenceID         string `json:"reference_id"`
 	CreatedAt           string `json:"created_at"`
 	EstimatedCompletion string `json:"estimated_completion"`
+	// Fields for sync mode (when WaitForCompletion=true)
+	CompletedAt         *string `json:"completed_at,omitempty"`
+	ErrorMessage        string  `json:"error_message,omitempty"`
+	CompensationApplied *bool   `json:"compensation_applied,omitempty"`
+	WorkflowID          string  `json:"workflow_id"`
+	RunID               string  `json:"run_id"`
 }
 
 func (service *Service) Transfer(ctx context.Context, params *TransferParams) (results *TransferResults, err error) {
