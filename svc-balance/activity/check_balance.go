@@ -53,6 +53,12 @@ func (api *Activity) CheckBalance(ctx context.Context, params CheckBalanceActivi
 
 	logger.WithField("message", "Starting CheckBalance activity").Info()
 
+	// FAILURE SIMULATION: Check if we should inject a failure
+	if err := api.service.SimulateFailure(ctx, "CheckBalance", params.AccountID); err != nil {
+		logger.WithError(err).Warn("Failure simulation triggered")
+		return nil, err
+	}
+
 	// Parse account ID
 	accountID, err := uuid.Parse(params.AccountID)
 	if err != nil {

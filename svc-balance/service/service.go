@@ -2,6 +2,7 @@ package service
 
 import (
 	"svc-balance/store"
+	"svc-balance/util/failure"
 
 	"github.com/sirupsen/logrus"
 )
@@ -10,6 +11,8 @@ type Service struct {
 	logger *logrus.Logger
 
 	store store.IStore
+
+	failureSimulator *failure.Simulator
 }
 
 func NewService(
@@ -20,5 +23,7 @@ func NewService(
 		logger: logger,
 
 		store: store,
+
+		failureSimulator: failure.NewSimulator(logger),
 	}
 }
