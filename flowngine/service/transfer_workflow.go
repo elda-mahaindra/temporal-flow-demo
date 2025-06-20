@@ -9,6 +9,9 @@ import (
 	"go.temporal.io/sdk/workflow"
 )
 
+// ActivityOptionsProvider holds the configured activity options for workflows
+var ActivityOptionsProvider func() workflow.ActivityOptions
+
 // TransferWorkflowParams defines the input parameters for the transfer workflow
 type TransferWorkflowParams struct {
 	TransferID     string          `json:"transfer_id"`
@@ -69,15 +72,30 @@ func transferWorkflow(ctx workflow.Context, params TransferWorkflowParams) (*Tra
 		return results, err
 	}
 
-	// Configure activity options with retries and timeouts
-	activityOptions := workflow.ActivityOptions{
-		StartToCloseTimeout: time.Minute * 2,
-		RetryPolicy: &temporal.RetryPolicy{
-			InitialInterval:    time.Second * 1,
-			BackoffCoefficient: 2.0,
-			MaximumInterval:    time.Second * 30,
-			MaximumAttempts:    3,
-		},
+	// PERFORMANCE OPTIMIZATION: Configure optimized activity options for banking operations from configuration
+	var activityOptions workflow.ActivityOptions
+	if ActivityOptionsProvider != nil {
+		activityOptions = ActivityOptionsProvider()
+	} else {
+		// Fallback to default banking-optimized options if configuration is not available
+		activityOptions = workflow.ActivityOptions{
+			StartToCloseTimeout: time.Minute * 2,  // Banking operations should complete within 2 minutes
+			HeartbeatTimeout:    time.Second * 30, // Heartbeat every 30 seconds for monitoring
+			RetryPolicy: &temporal.RetryPolicy{
+				InitialInterval:    time.Millisecond * 500, // Start with 500ms retry interval (faster for banking)
+				BackoffCoefficient: 1.5,                    // Moderate backoff to prevent thundering herd
+				MaximumInterval:    time.Second * 15,       // Max 15 seconds between retries (banking needs quick response)
+				MaximumAttempts:    3,                      // Fail fast for banking operations
+				NonRetryableErrorTypes: []string{ // Don't retry these banking-specific errors
+					"INSUFFICIENT_FUNDS",
+					"ACCOUNT_NOT_FOUND",
+					"INVALID_CURRENCY",
+					"ACCOUNT_BLOCKED",
+				},
+			},
+			ScheduleToCloseTimeout: time.Minute * 3,  // Total time including queuing
+			ScheduleToStartTimeout: time.Second * 30, // Max time in queue before starting
+		}
 	}
 	ctx = workflow.WithActivityOptions(ctx, activityOptions)
 

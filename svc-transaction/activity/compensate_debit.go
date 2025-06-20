@@ -68,11 +68,17 @@ func (api *Activity) CompensateDebit(ctx context.Context, params CompensateDebit
 
 	logger.WithField("message", "Starting CompensateDebit activity").Info()
 
+	// PERFORMANCE OPTIMIZATION: Record heartbeat for long-running activity monitoring
+	activity.RecordHeartbeat(ctx, "CompensateDebit_started")
+
 	// FAILURE SIMULATION: Check if we should inject a failure
 	if err := api.service.SimulateFailure(ctx, "CompensateDebit", params.AccountID); err != nil {
 		logger.WithError(err).Warn("🚨 Transaction failure simulation triggered")
 		return nil, err
 	}
+
+	// PERFORMANCE OPTIMIZATION: Record heartbeat before parsing
+	activity.RecordHeartbeat(ctx, "CompensateDebit_parsing")
 
 	// Parse account ID
 	accountID, err := uuid.Parse(params.AccountID)
@@ -114,6 +120,9 @@ func (api *Activity) CompensateDebit(ctx context.Context, params CompensateDebit
 		},
 	}
 
+	// PERFORMANCE OPTIMIZATION: Record heartbeat before service call
+	activity.RecordHeartbeat(ctx, "CompensateDebit_service_call")
+
 	// Call the service method
 	result, err := api.service.CompensateDebit(ctx, serviceParams)
 	if err != nil {
@@ -123,6 +132,9 @@ func (api *Activity) CompensateDebit(ctx context.Context, params CompensateDebit
 
 		return nil, err
 	}
+
+	// PERFORMANCE OPTIMIZATION: Record heartbeat after service completion
+	activity.RecordHeartbeat(ctx, "CompensateDebit_completed")
 
 	// Convert to activity result format
 	activityResult := &CompensateDebitActivityResults{

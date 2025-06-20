@@ -53,11 +53,17 @@ func (api *Activity) CheckBalance(ctx context.Context, params CheckBalanceActivi
 
 	logger.WithField("message", "Starting CheckBalance activity").Info()
 
+	// PERFORMANCE OPTIMIZATION: Record heartbeat for long-running activity monitoring
+	activity.RecordHeartbeat(ctx, "CheckBalance_started")
+
 	// FAILURE SIMULATION: Check if we should inject a failure
 	if err := api.service.SimulateFailure(ctx, "CheckBalance", params.AccountID); err != nil {
 		logger.WithError(err).Warn("Failure simulation triggered")
 		return nil, err
 	}
+
+	// PERFORMANCE OPTIMIZATION: Record heartbeat before parsing
+	activity.RecordHeartbeat(ctx, "CheckBalance_parsing")
 
 	// Parse account ID
 	accountID, err := uuid.Parse(params.AccountID)
@@ -77,6 +83,9 @@ func (api *Activity) CheckBalance(ctx context.Context, params CheckBalanceActivi
 		IncludeDetails:   false, // Keep it simple for workflow activities
 	}
 
+	// PERFORMANCE OPTIMIZATION: Record heartbeat before service call
+	activity.RecordHeartbeat(ctx, "CheckBalance_service_call")
+
 	// Call the service method
 	result, err := api.service.CheckBalance(ctx, serviceParams)
 	if err != nil {
@@ -86,6 +95,9 @@ func (api *Activity) CheckBalance(ctx context.Context, params CheckBalanceActivi
 
 		return nil, err
 	}
+
+	// PERFORMANCE OPTIMIZATION: Record heartbeat after service completion
+	activity.RecordHeartbeat(ctx, "CheckBalance_completed")
 
 	// Convert to activity result format
 	activityResult := &CheckBalanceActivityResults{

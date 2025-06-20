@@ -8,14 +8,23 @@
     "postgres": {
       "connection_string": "postgresql://postgres:changeme@postgres:5432/temporal_flow_demo_db",
       "pool": {
-        "max_conns": 10,
-        "min_conns": 1
+        "max_conns": 25,
+        "min_conns": 5
       }
     }
   },
   "temporal": {
     "host_port": "temporal-server:7233",
     "namespace": "default",
-    "task_queue": "transaction-task-queue"
+    "task_queue": "transaction-task-queue",
+    "_comment_worker_options": "TEMP-009: Performance-optimized worker options for transaction service. Transaction operations are heavier (database writes), so lower concurrency with higher throughput",
+    "worker_options": {
+      "max_concurrent_activity_executions": 80,
+      "max_concurrent_workflow_executions": 40,
+      "max_concurrent_local_activities": 160,
+      "max_concurrent_activity_task_pollers": 5,
+      "max_concurrent_workflow_task_pollers": 5,
+      "enable_session_worker": true
+    }
   }
 }

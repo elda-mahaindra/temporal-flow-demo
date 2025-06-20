@@ -6,6 +6,37 @@
   },
   "temporal": {
     "host": "temporal-server",
-    "port": 7233
+    "port": 7233,
+    "activity_options": {
+      "start_to_close_timeout_seconds": 120,
+      "heartbeat_timeout_seconds": 30,
+      "schedule_to_close_timeout_seconds": 180,
+      "schedule_to_start_timeout_seconds": 30,
+      "retry_policy": {
+        "initial_interval_ms": 500,
+        "backoff_coefficient": 1.5,
+        "maximum_interval_seconds": 15,
+        "maximum_attempts": 3,
+        "non_retryable_error_types": [
+          "INSUFFICIENT_FUNDS",
+          "ACCOUNT_NOT_FOUND",
+          "INVALID_CURRENCY",
+          "ACCOUNT_BLOCKED"
+        ]
+      }
+    }
   }
 }
+
+// PERFORMANCE OPTIMIZATION NOTES:
+// activity_options: Banking-optimized activity execution settings
+// - start_to_close_timeout_seconds: Max time for activity to complete (120s for banking operations)
+// - heartbeat_timeout_seconds: Activity heartbeat interval for monitoring (30s)
+// - schedule_to_close_timeout_seconds: Total time including queuing (180s)
+// - schedule_to_start_timeout_seconds: Max time in queue before starting (30s)
+// - retry_policy: Banking-specific retry behavior
+//   - initial_interval_ms: Start retry at 500ms (faster for banking)
+//   - backoff_coefficient: 1.5x increase per retry (moderate backoff)
+//   - maximum_interval_seconds: Max 15s between retries (quick response)
+//   - maximum_attempts: Fail fast after 3 attempts for banking operations
+//   - non_retryable_error_types: Business logic errors that shouldn't be retried

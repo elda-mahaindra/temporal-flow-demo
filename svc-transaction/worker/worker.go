@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"svc-transaction/activity"
+	"svc-transaction/util/config"
 
 	"github.com/sirupsen/logrus"
 	"go.temporal.io/sdk/client"
@@ -21,15 +22,41 @@ type Worker struct {
 	logger    *logrus.Logger
 }
 
-// NewWorker creates a new Temporal worker instance
+// NewWorker creates a new Temporal worker instance with performance optimizations
 func NewWorker(
 	logger *logrus.Logger,
 	temporalClient client.Client,
 	taskQueue string,
 	activity *activity.Activity,
+	temporalConfig config.Temporal,
 ) (*Worker, error) {
-	// Create worker with default options
-	temporalWorker := worker.New(temporalClient, taskQueue, worker.Options{})
+	// Create worker with performance-optimized options
+	workerOptions := worker.Options{
+		// Transaction service optimization: fewer but heavier database operations
+		MaxConcurrentActivityExecutionSize:      getOptimizedValue(temporalConfig.WorkerOptions.MaxConcurrentActivityExecutions, 80),
+		MaxConcurrentWorkflowTaskExecutionSize:  getOptimizedValue(temporalConfig.WorkerOptions.MaxConcurrentWorkflowExecutions, 40),
+		MaxConcurrentLocalActivityExecutionSize: getOptimizedValue(temporalConfig.WorkerOptions.MaxConcurrentLocalActivities, 160),
+		MaxConcurrentActivityTaskPollers:        getOptimizedValue(temporalConfig.WorkerOptions.MaxConcurrentActivityTaskPollers, 5),
+		MaxConcurrentWorkflowTaskPollers:        getOptimizedValue(temporalConfig.WorkerOptions.MaxConcurrentWorkflowTaskPollers, 5),
+
+		// Performance optimization: Enable session worker for resource management
+		EnableSessionWorker: temporalConfig.WorkerOptions.EnableSessionWorker,
+
+		// Task timeout optimizations
+		MaxHeartbeatThrottleInterval:     60 * time.Second,
+		DefaultHeartbeatThrottleInterval: 30 * time.Second,
+	}
+
+	temporalWorker := worker.New(temporalClient, taskQueue, workerOptions)
+
+	logger.WithFields(logrus.Fields{
+		"max_concurrent_activities": workerOptions.MaxConcurrentActivityExecutionSize,
+		"max_concurrent_workflows":  workerOptions.MaxConcurrentWorkflowTaskExecutionSize,
+		"max_local_activities":      workerOptions.MaxConcurrentLocalActivityExecutionSize,
+		"activity_task_pollers":     workerOptions.MaxConcurrentActivityTaskPollers,
+		"workflow_task_pollers":     workerOptions.MaxConcurrentWorkflowTaskPollers,
+		"session_worker_enabled":    workerOptions.EnableSessionWorker,
+	}).Info("🚀 Transaction service worker created with performance optimizations")
 
 	return &Worker{
 		client:    temporalClient,
@@ -38,6 +65,14 @@ func NewWorker(
 		activity:  activity,
 		logger:    logger,
 	}, nil
+}
+
+// getOptimizedValue returns the configured value or a default if not set
+func getOptimizedValue(configValue, defaultValue int) int {
+	if configValue > 0 {
+		return configValue
+	}
+	return defaultValue
 }
 
 // registerActivities registers all activities with the worker

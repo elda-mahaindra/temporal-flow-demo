@@ -83,6 +83,7 @@ func start() {
 		temporalClient,
 		config.Temporal.TaskQueue,
 		activity,
+		config.Temporal,
 	)
 	if err != nil {
 		logger.WithFields(logrus.Fields{

@@ -64,11 +64,17 @@ func (api *Activity) DebitAccount(ctx context.Context, params DebitAccountActivi
 
 	logger.WithField("message", "Starting DebitAccount activity").Info()
 
+	// PERFORMANCE OPTIMIZATION: Record heartbeat for long-running activity monitoring
+	activity.RecordHeartbeat(ctx, "DebitAccount_started")
+
 	// FAILURE SIMULATION: Check if we should inject a failure
 	if err := api.service.SimulateFailure(ctx, "DebitAccount", params.AccountID); err != nil {
 		logger.WithError(err).Warn("🚨 Transaction failure simulation triggered")
 		return nil, err
 	}
+
+	// PERFORMANCE OPTIMIZATION: Record heartbeat before parsing
+	activity.RecordHeartbeat(ctx, "DebitAccount_parsing")
 
 	// Parse account ID
 	accountID, err := uuid.Parse(params.AccountID)
@@ -96,6 +102,9 @@ func (api *Activity) DebitAccount(ctx context.Context, params DebitAccountActivi
 		},
 	}
 
+	// PERFORMANCE OPTIMIZATION: Record heartbeat before service call
+	activity.RecordHeartbeat(ctx, "DebitAccount_service_call")
+
 	// Call the service method
 	result, err := api.service.DebitAccount(ctx, serviceParams)
 	if err != nil {
@@ -105,6 +114,9 @@ func (api *Activity) DebitAccount(ctx context.Context, params DebitAccountActivi
 
 		return nil, err
 	}
+
+	// PERFORMANCE OPTIMIZATION: Record heartbeat after service completion
+	activity.RecordHeartbeat(ctx, "DebitAccount_completed")
 
 	// Convert to activity result format
 	activityResult := &DebitAccountActivityResults{

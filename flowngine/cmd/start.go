@@ -57,7 +57,7 @@ func start() {
 	logger.Info("🎉 Temporal client initialized - ready for workflow orchestration!")
 
 	// --- Init service layer ---
-	service := service.NewService(logger, temporalClient)
+	service := service.NewService(logger, config, temporalClient)
 
 	// --- Init api layer ---
 	api := api.NewApi(logger, service)
