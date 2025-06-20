@@ -7,6 +7,8 @@ CREATE TYPE core.currency_code AS ENUM ('USD', 'EUR', 'GBP', 'JPY', 'CAD', 'AUD'
 CREATE TYPE core.transaction_type AS ENUM ('debit', 'credit');
 CREATE TYPE core.transaction_status AS ENUM ('pending', 'completed', 'failed', 'cancelled');
 CREATE TYPE core.transfer_status AS ENUM ('pending', 'processing', 'completed', 'failed', 'cancelled');
+CREATE TYPE core.compensation_type AS ENUM ('debit_reversal', 'credit_reversal', 'manual_adjustment');
+CREATE TYPE core.compensation_status AS ENUM ('pending', 'completed', 'failed', 'timeout', 'manual_required');
 
 -- Table definitions
 
@@ -75,6 +77,26 @@ CREATE TABLE core.account_balance_history (
     created_by VARCHAR(255) -- Service or user that made the change
 );
 
+-- Compensation audit trail for tracking compensation operations
+CREATE TABLE core.compensation_audit_trail (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    workflow_id VARCHAR(255) NOT NULL,
+    run_id VARCHAR(255) NOT NULL,
+    transfer_id VARCHAR(255), -- Reference to the transfer being compensated
+    original_transaction_id UUID REFERENCES core.transactions(id),
+    compensation_transaction_id UUID REFERENCES core.transactions(id),
+    compensation_reason TEXT NOT NULL,
+    compensation_type core.compensation_type NOT NULL,
+    compensation_status core.compensation_status NOT NULL DEFAULT 'pending',
+    compensation_attempts INTEGER NOT NULL DEFAULT 1,
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+    completed_at TIMESTAMP WITH TIME ZONE,
+    failure_reason TEXT,
+    timeout_duration_ms INTEGER, -- Timeout that occurred (if any)
+    metadata JSONB -- Additional compensation context
+);
+
 -- Index definitions
 
 -- Accounts indexes
@@ -106,6 +128,16 @@ CREATE INDEX idx_balance_history_transaction_id ON core.account_balance_history(
 CREATE INDEX idx_balance_history_created_at ON core.account_balance_history(created_at);
 CREATE INDEX idx_balance_history_account_created ON core.account_balance_history(account_id, created_at);
 
+-- Compensation audit trail indexes
+CREATE INDEX idx_compensation_workflow_id ON core.compensation_audit_trail(workflow_id);
+CREATE INDEX idx_compensation_run_id ON core.compensation_audit_trail(run_id);
+CREATE INDEX idx_compensation_transfer_id ON core.compensation_audit_trail(transfer_id);
+CREATE INDEX idx_compensation_original_tx ON core.compensation_audit_trail(original_transaction_id);
+CREATE INDEX idx_compensation_status ON core.compensation_audit_trail(compensation_status);
+CREATE INDEX idx_compensation_type ON core.compensation_audit_trail(compensation_type);
+CREATE INDEX idx_compensation_created_at ON core.compensation_audit_trail(created_at);
+CREATE INDEX idx_compensation_workflow_status ON core.compensation_audit_trail(workflow_id, compensation_status);
+
 -- Comment definitions
 COMMENT ON SCHEMA core IS 'Core banking schema for temporal-flow-demo';
 
@@ -122,6 +154,10 @@ COMMENT ON COLUMN core.transfers.workflow_id IS 'Temporal workflow ID for tracki
 COMMENT ON COLUMN core.transfers.run_id IS 'Temporal run ID for tracking';
 
 COMMENT ON TABLE core.account_balance_history IS 'Audit trail for all balance changes';
+COMMENT ON TABLE core.compensation_audit_trail IS 'Audit trail for compensation operations in Temporal workflows';
+COMMENT ON COLUMN core.compensation_audit_trail.workflow_id IS 'Temporal workflow ID for compensation tracking';
+COMMENT ON COLUMN core.compensation_audit_trail.compensation_attempts IS 'Number of attempts made for this compensation';
+COMMENT ON COLUMN core.compensation_audit_trail.timeout_duration_ms IS 'Timeout duration if compensation timed out';
 
 -- Reference definitions
 ALTER TABLE core.transfers ADD CONSTRAINT fk_transfers_from_account 

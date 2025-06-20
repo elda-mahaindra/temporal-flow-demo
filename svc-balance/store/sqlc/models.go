@@ -55,6 +55,94 @@ func (ns NullCoreAccountStatus) Value() (driver.Value, error) {
 	return string(ns.CoreAccountStatus), nil
 }
 
+type CoreCompensationStatus string
+
+const (
+	CoreCompensationStatusPending        CoreCompensationStatus = "pending"
+	CoreCompensationStatusCompleted      CoreCompensationStatus = "completed"
+	CoreCompensationStatusFailed         CoreCompensationStatus = "failed"
+	CoreCompensationStatusTimeout        CoreCompensationStatus = "timeout"
+	CoreCompensationStatusManualRequired CoreCompensationStatus = "manual_required"
+)
+
+func (e *CoreCompensationStatus) Scan(src interface{}) error {
+	switch s := src.(type) {
+	case []byte:
+		*e = CoreCompensationStatus(s)
+	case string:
+		*e = CoreCompensationStatus(s)
+	default:
+		return fmt.Errorf("unsupported scan type for CoreCompensationStatus: %T", src)
+	}
+	return nil
+}
+
+type NullCoreCompensationStatus struct {
+	CoreCompensationStatus CoreCompensationStatus `json:"core_compensation_status"`
+	Valid                  bool                   `json:"valid"` // Valid is true if CoreCompensationStatus is not NULL
+}
+
+// Scan implements the Scanner interface.
+func (ns *NullCoreCompensationStatus) Scan(value interface{}) error {
+	if value == nil {
+		ns.CoreCompensationStatus, ns.Valid = "", false
+		return nil
+	}
+	ns.Valid = true
+	return ns.CoreCompensationStatus.Scan(value)
+}
+
+// Value implements the driver Valuer interface.
+func (ns NullCoreCompensationStatus) Value() (driver.Value, error) {
+	if !ns.Valid {
+		return nil, nil
+	}
+	return string(ns.CoreCompensationStatus), nil
+}
+
+type CoreCompensationType string
+
+const (
+	CoreCompensationTypeDebitReversal    CoreCompensationType = "debit_reversal"
+	CoreCompensationTypeCreditReversal   CoreCompensationType = "credit_reversal"
+	CoreCompensationTypeManualAdjustment CoreCompensationType = "manual_adjustment"
+)
+
+func (e *CoreCompensationType) Scan(src interface{}) error {
+	switch s := src.(type) {
+	case []byte:
+		*e = CoreCompensationType(s)
+	case string:
+		*e = CoreCompensationType(s)
+	default:
+		return fmt.Errorf("unsupported scan type for CoreCompensationType: %T", src)
+	}
+	return nil
+}
+
+type NullCoreCompensationType struct {
+	CoreCompensationType CoreCompensationType `json:"core_compensation_type"`
+	Valid                bool                 `json:"valid"` // Valid is true if CoreCompensationType is not NULL
+}
+
+// Scan implements the Scanner interface.
+func (ns *NullCoreCompensationType) Scan(value interface{}) error {
+	if value == nil {
+		ns.CoreCompensationType, ns.Valid = "", false
+		return nil
+	}
+	ns.Valid = true
+	return ns.CoreCompensationType.Scan(value)
+}
+
+// Value implements the driver Valuer interface.
+func (ns NullCoreCompensationType) Value() (driver.Value, error) {
+	if !ns.Valid {
+		return nil, nil
+	}
+	return string(ns.CoreCompensationType), nil
+}
+
 type CoreCurrencyCode string
 
 const (
@@ -262,6 +350,29 @@ type CoreAccountBalanceHistory struct {
 	Operation     string             `json:"operation"`
 	CreatedAt     pgtype.Timestamptz `json:"created_at"`
 	CreatedBy     pgtype.Text        `json:"created_by"`
+}
+
+// Audit trail for compensation operations in Temporal workflows
+type CoreCompensationAuditTrail struct {
+	ID pgtype.UUID `json:"id"`
+	// Temporal workflow ID for compensation tracking
+	WorkflowID                string                 `json:"workflow_id"`
+	RunID                     string                 `json:"run_id"`
+	TransferID                pgtype.Text            `json:"transfer_id"`
+	OriginalTransactionID     pgtype.UUID            `json:"original_transaction_id"`
+	CompensationTransactionID pgtype.UUID            `json:"compensation_transaction_id"`
+	CompensationReason        string                 `json:"compensation_reason"`
+	CompensationType          CoreCompensationType   `json:"compensation_type"`
+	CompensationStatus        CoreCompensationStatus `json:"compensation_status"`
+	// Number of attempts made for this compensation
+	CompensationAttempts int32              `json:"compensation_attempts"`
+	CreatedAt            pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt            pgtype.Timestamptz `json:"updated_at"`
+	CompletedAt          pgtype.Timestamptz `json:"completed_at"`
+	FailureReason        pgtype.Text        `json:"failure_reason"`
+	// Timeout duration if compensation timed out
+	TimeoutDurationMs pgtype.Int4 `json:"timeout_duration_ms"`
+	Metadata          []byte      `json:"metadata"`
 }
 
 // Individual debit/credit transactions

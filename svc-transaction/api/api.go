@@ -39,5 +39,11 @@ func (api *Api) SetupRoutes(app *fiber.App) *fiber.App {
 	failureSimulation.Post("/reset", api.ResetFailureSimulation)
 	failureSimulation.Get("/scenarios", api.GetLearningScenarios)
 
+	// Enhanced Compensation Audit Routes
+	compensationAudit := app.Group("/compensation-audit")
+	compensationAudit.Get("/stats", api.GetCompensationStats)
+	compensationAudit.Get("/workflow/:workflow_id", api.GetCompensationAuditByWorkflow)
+	compensationAudit.Get("/pending", api.GetPendingCompensations)
+
 	return app
 }

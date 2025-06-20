@@ -2,8 +2,11 @@ package service
 
 import (
 	"context"
+	"fmt"
 
 	"svc-transaction/util/failure"
+
+	"github.com/sirupsen/logrus"
 )
 
 // Learning-focused failure simulation rules for transaction operations
@@ -110,7 +113,9 @@ var learningFailureRules = []failure.Rule{
 // SimulateFailure executes failure simulation based on hardcoded learning rules
 // This method is called from activities to inject controlled failures for demonstration
 func (service *Service) SimulateFailure(ctx context.Context, operation string, accountID string) error {
-	return service.failureSimulator.SimulateFailure(ctx, operation, accountID, learningFailureRules)
+	// Combine regular transaction rules with enhanced compensation rules
+	allRules := append(learningFailureRules, enhancedCompensationRules...)
+	return service.failureSimulator.SimulateFailure(ctx, operation, accountID, allRules)
 }
 
 // GetFailureSimulationStats returns statistics about failure simulation
@@ -174,4 +179,231 @@ func (service *Service) GetLearningScenarios() []map[string]any {
 	}
 
 	return scenarios
+}
+
+// Enhanced Compensation Learning Scenarios
+var enhancedCompensationRules = []failure.Rule{
+	// Nested Compensation Failures
+	{
+		Name:        "compensation_cascade_failure",
+		Enabled:     true,
+		Type:        "error",
+		Probability: 0.9, // High probability to show cascading failures
+		Operations:  []string{"CompensateDebit"},
+		Accounts:    []string{"cascade-failure-account"},
+		Message:     "compensation cascade failure: original compensation failed, secondary compensation also failed",
+		MaxCount:    3,
+	},
+
+	// Timeout-based Compensation Failures
+	{
+		Name:        "compensation_timeout_escalation",
+		Enabled:     true,
+		Type:        "timeout",
+		Probability: 0.8,
+		Operations:  []string{"CompensateDebit"},
+		Accounts:    []string{"timeout-escalation-account"},
+		TimeoutMs:   5000, // 5 second timeout
+		Message:     "compensation timeout: operation exceeded maximum retry attempts",
+		MaxCount:    5,
+	},
+
+	// Partial Compensation Scenarios
+	{
+		Name:        "partial_compensation_recovery",
+		Enabled:     true,
+		Type:        "error",
+		Probability: 0.6,
+		Operations:  []string{"CompensateDebit"},
+		Accounts:    []string{"partial-compensation-account"},
+		Message:     "partial compensation failure: some operations completed but compensation incomplete",
+		MaxCount:    2,
+	},
+
+	// Enhanced Credit Compensation Failures
+	{
+		Name:        "credit_compensation_deadlock",
+		Enabled:     true,
+		Type:        "error",
+		Probability: 0.7,
+		Operations:  []string{"CreditAccount"},
+		Accounts:    []string{"deadlock-compensation-account"},
+		Message:     "credit compensation deadlock: unable to process due to resource contention",
+		MaxCount:    4,
+	},
+
+	// Temporal Workflow State Corruption
+	{
+		Name:        "workflow_state_corruption_compensation",
+		Enabled:     false, // Disabled by default due to panic
+		Type:        "panic",
+		Probability: 0.3,
+		Operations:  []string{"CompensateDebit", "CreditAccount"},
+		Accounts:    []string{"state-corruption-account"},
+		Message:     "workflow state corruption: compensation process detected invalid workflow state",
+		MaxCount:    1,
+	},
+
+	// Multi-Service Compensation Failures
+	{
+		Name:        "cross_service_compensation_failure",
+		Enabled:     true,
+		Type:        "timeout",
+		Probability: 0.5,
+		Operations:  []string{"DebitAccount"},
+		Accounts:    []string{"cross-service-failure-account"},
+		TimeoutMs:   4000, // 4 second timeout
+		Message:     "cross-service compensation failure: downstream service unavailable during compensation",
+		MaxCount:    3,
+	},
+
+	// Compensation Audit Trail Failures
+	{
+		Name:        "audit_trail_corruption_compensation",
+		Enabled:     true,
+		Type:        "error",
+		Probability: 0.4,
+		Operations:  []string{"CompensateDebit"},
+		Accounts:    []string{"audit-trail-corruption-account"},
+		Message:     "audit trail corruption: compensation succeeded but audit record failed",
+		MaxCount:    2,
+	},
+
+	// Resource Exhaustion During Compensation
+	{
+		Name:        "resource_exhaustion_compensation",
+		Enabled:     true,
+		Type:        "slow",
+		Probability: 0.6,
+		Operations:  []string{"DebitAccount", "CreditAccount", "CompensateDebit"},
+		Accounts:    []string{"resource-exhaustion-account"},
+		DelayMs:     8000, // 8 second delay
+		Message:     "resource exhaustion: compensation delayed due to insufficient system resources",
+		MaxCount:    4,
+	},
+
+	// Byzantine Failure During Compensation
+	{
+		Name:        "byzantine_compensation_failure",
+		Enabled:     true,
+		Type:        "error",
+		Probability: 0.3,
+		Operations:  []string{"CompensateDebit"},
+		Accounts:    []string{"byzantine-failure-account"},
+		Message:     "byzantine failure: compensation appeared successful but data is corrupted",
+		MaxCount:    2,
+	},
+
+	// Compensation Retry Exhaustion
+	{
+		Name:        "compensation_retry_exhaustion",
+		Enabled:     true,
+		Type:        "error",
+		Probability: 1.0, // Always fail to demonstrate retry exhaustion
+		Operations:  []string{"CompensateDebit"},
+		Accounts:    []string{"retry-exhaustion-account"},
+		Message:     "compensation retry exhaustion: all retry attempts failed, manual intervention required",
+		MaxCount:    10, // High count to show multiple retry attempts
+	},
+}
+
+// AddEnhancedCompensationScenarios adds sophisticated compensation failure scenarios
+func (service *Service) AddEnhancedCompensationScenarios() {
+	const op = "service.Service.AddEnhancedCompensationScenarios"
+
+	logger := service.logger.WithField("[op]", op)
+	logger.Info("Enhanced compensation failure scenarios are now available")
+
+	logger.WithField("scenario_count", len(enhancedCompensationRules)).Info("Enhanced compensation scenarios loaded successfully")
+}
+
+// GetEnhancedCompensationScenarios returns the enhanced compensation learning scenarios
+func (service *Service) GetEnhancedCompensationScenarios() []map[string]any {
+	scenarios := make([]map[string]any, 0, len(enhancedCompensationRules))
+
+	for _, rule := range enhancedCompensationRules {
+		scenario := map[string]any{
+			"name":        rule.Name,
+			"enabled":     rule.Enabled,
+			"type":        rule.Type,
+			"probability": rule.Probability,
+			"operations":  rule.Operations,
+			"accounts":    rule.Accounts,
+			"description": rule.Message,
+		}
+
+		if rule.DelayMs > 0 {
+			scenario["delay_ms"] = rule.DelayMs
+		}
+		if rule.TimeoutMs > 0 {
+			scenario["timeout_ms"] = rule.TimeoutMs
+		}
+		if rule.MaxCount > 0 {
+			scenario["max_count"] = rule.MaxCount
+		}
+
+		// Add learning notes for enhanced scenarios
+		scenario["learning_note"] = getEnhancedLearningNote(rule.Name)
+
+		scenarios = append(scenarios, scenario)
+	}
+
+	return scenarios
+}
+
+// getEnhancedLearningNote returns educational notes for enhanced compensation scenarios
+func getEnhancedLearningNote(ruleName string) string {
+	notes := map[string]string{
+		"compensation_cascade_failure":           "Demonstrates complex compensation scenarios where compensations themselves need compensation",
+		"compensation_timeout_escalation":        "Shows how Temporal handles compensation timeouts and escalation to manual processes",
+		"partial_compensation_recovery":          "Demonstrates handling of partial failures in complex compensation workflows",
+		"credit_compensation_deadlock":           "Shows complex recovery patterns for credit operations during compensation",
+		"workflow_state_corruption_compensation": "Demonstrates Temporal's ability to recover from workflow state corruption during compensation",
+		"cross_service_compensation_failure":     "Shows how Temporal handles compensation when external services become unavailable",
+		"audit_trail_corruption_compensation":    "Demonstrates separation of business logic from audit concerns in compensation",
+		"resource_exhaustion_compensation":       "Shows how Temporal handles resource constraints during compensation workflows",
+		"byzantine_compensation_failure":         "Demonstrates detection and handling of Byzantine failures in compensation logic",
+		"compensation_retry_exhaustion":          "Shows how Temporal escalates to manual processes when all automated recovery fails",
+	}
+
+	if note, exists := notes[ruleName]; exists {
+		return note
+	}
+	return "Enhanced compensation scenario for advanced Temporal learning"
+}
+
+// TriggerEnhancedCompensationFailure manually triggers a specific enhanced compensation failure
+func (service *Service) TriggerEnhancedCompensationFailure(
+	ctx context.Context,
+	scenarioName string,
+	accountID string,
+) error {
+	const op = "service.Service.TriggerEnhancedCompensationFailure"
+
+	logger := service.logger.WithFields(logrus.Fields{
+		"[op]":          op,
+		"scenario_name": scenarioName,
+		"account_id":    accountID,
+	})
+
+	logger.Info("Triggering enhanced compensation failure scenario")
+
+	for _, rule := range enhancedCompensationRules {
+		if rule.Name == scenarioName {
+			// Create a single-use rule to force trigger the scenario
+			triggerRule := rule
+			triggerRule.Probability = 1.0 // Force trigger
+			triggerRule.Enabled = true
+			triggerRule.Accounts = []string{accountID} // Target specific account
+
+			err := service.failureSimulator.SimulateFailure(ctx, "CompensateDebit", accountID, []failure.Rule{triggerRule})
+			if err != nil {
+				logger.WithError(err).Warn("🚨 Enhanced compensation failure triggered manually")
+				return err
+			}
+			return nil
+		}
+	}
+
+	return fmt.Errorf("enhanced compensation scenario '%s' not found", scenarioName)
 }
