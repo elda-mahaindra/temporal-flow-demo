@@ -1,21 +1,18 @@
-.PHONY: help up down
+# Development environment commands
+dev-up:
+	docker-compose -f docker-compose.yml up -d
 
-# Default target
-help: ## Show available commands
-	@echo "OpenTelemetry Demo Commands:"
-	@echo ""
-	@echo "  make up    - Start all services"
-	@echo "  make down  - Stop all services and remove volumes"
-	@echo ""
+dev-down:
+	docker-compose -f docker-compose.yml down
 
-up: ## Start all services
-	@echo "🚀 Starting services..."
-	docker compose up -d
-	@echo "✅ Services started!"
-	@echo "📊 Jaeger UI: http://localhost:16686"
-	@echo "🚀 API: http://localhost:4000"
+dev-down-volumes:
+	docker-compose -f docker-compose.yml down -v
 
-down: ## Stop all services
-	@echo "🛑 Stopping services..."
-	docker compose down -v
-	@echo "✅ Services stopped!" 
+# Helper commands
+help:
+	@echo "Available commands:"
+	@echo "  dev-up           - Start development environment in detached mode"
+	@echo "  dev-down         - Stop development environment"
+	@echo "  dev-down-volumes - Stop development environment and remove volumes"
+
+.PHONY: dev-up dev-down dev-down-volumes help
