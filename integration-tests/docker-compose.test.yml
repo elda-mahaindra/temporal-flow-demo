@@ -1,0 +1,209 @@
+version: "3.8"
+
+# Integration Test Environment
+# Extends the main docker-compose.yml with test-specific configurations
+# Usage: docker-compose -f docker-compose.yml -f integration-tests/docker-compose.test.yml up
+
+services:
+  # Test Database with isolated test data
+  postgres-test:
+    container_name: postgres-test
+    image: postgres:15
+    environment:
+      - POSTGRES_DB=temporal_flow_demo_test_db
+      - POSTGRES_USER=test_user
+      - POSTGRES_PASSWORD=test_password
+    volumes:
+      - postgres-test-data:/var/lib/postgresql/data/
+      - ./_init/postgres:/docker-entrypoint-initdb.d
+      - ./integration-tests/test-data:/docker-entrypoint-initdb.d/99-test-data
+    ports:
+      - "5433:5432" # Different port to avoid conflicts
+    networks:
+      - temporal-flow-demo-test
+    healthcheck:
+      test:
+        ["CMD-SHELL", "pg_isready -U test_user -d temporal_flow_demo_test_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # Temporal Server for testing
+  temporal-server-test:
+    container_name: temporal-server-test
+    depends_on:
+      postgres-test:
+        condition: service_healthy
+    environment:
+      - DB=postgresql
+      - DB_PORT=5432
+      - POSTGRES_USER=test_user
+      - POSTGRES_PWD=test_password
+      - POSTGRES_SEEDS=postgres-test
+      - DYNAMIC_CONFIG_FILE_PATH=config/dynamicconfig/development-sql.yaml
+    image: temporalio/auto-setup:1.22.4
+    networks:
+      - temporal-flow-demo-test
+    ports:
+      - "7234:7233" # Different port for test isolation
+    volumes:
+      - ./temporal-config:/etc/temporal/config/dynamicconfig
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "tctl",
+          "--address",
+          "temporal-server-test:7233",
+          "cluster",
+          "health",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Test Services with test configurations
+  svc-balance-test:
+    build: ./svc-balance
+    image: svc-balance:test
+    container_name: svc-balance-test
+    environment:
+      - CONFIG_FILE=/app/config.test.json
+    volumes:
+      - ./integration-tests/configs/svc-balance-test.json:/app/config.test.json
+    depends_on:
+      postgres-test:
+        condition: service_healthy
+      temporal-server-test:
+        condition: service_healthy
+    networks:
+      - temporal-flow-demo-test
+    ports:
+      - "4010:4000" # Different ports for test isolation
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "wget",
+          "--quiet",
+          "--tries=1",
+          "--spider",
+          "http://localhost:4000/health",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  svc-transaction-test:
+    build: ./svc-transaction
+    image: svc-transaction:test
+    container_name: svc-transaction-test
+    environment:
+      - CONFIG_FILE=/app/config.test.json
+    volumes:
+      - ./integration-tests/configs/svc-transaction-test.json:/app/config.test.json
+    depends_on:
+      postgres-test:
+        condition: service_healthy
+      temporal-server-test:
+        condition: service_healthy
+    networks:
+      - temporal-flow-demo-test
+    ports:
+      - "4011:4001"
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "wget",
+          "--quiet",
+          "--tries=1",
+          "--spider",
+          "http://localhost:4001/health",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  flowngine-test:
+    build: ./flowngine
+    image: flowngine:test
+    container_name: flowngine-test
+    environment:
+      - CONFIG_FILE=/app/config.test.json
+    volumes:
+      - ./integration-tests/configs/flowngine-test.json:/app/config.test.json
+    depends_on:
+      svc-balance-test:
+        condition: service_healthy
+      svc-transaction-test:
+        condition: service_healthy
+      temporal-server-test:
+        condition: service_healthy
+    networks:
+      - temporal-flow-demo-test
+    ports:
+      - "50052:50051"
+    healthcheck:
+      test: ["CMD", "grpc_health_probe", "-addr=localhost:50051"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  api-gateway-test:
+    build: ./api-gateway
+    image: api-gateway:test
+    container_name: api-gateway-test
+    environment:
+      - CONFIG_FILE=/app/config.test.json
+    volumes:
+      - ./integration-tests/configs/api-gateway-test.json:/app/config.test.json
+    depends_on:
+      flowngine-test:
+        condition: service_healthy
+    networks:
+      - temporal-flow-demo-test
+    ports:
+      - "4012:4000"
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "wget",
+          "--quiet",
+          "--tries=1",
+          "--spider",
+          "http://localhost:4000/health",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  # Integration Test Runner
+  integration-tests:
+    build: ./integration-tests
+    image: integration-tests
+    container_name: integration-tests
+    depends_on:
+      api-gateway-test:
+        condition: service_healthy
+    environment:
+      - API_GATEWAY_URL=http://api-gateway-test:4000
+      - FLOWNGINE_URL=flowngine-test:50051
+      - SVC_BALANCE_URL=http://svc-balance-test:4000
+      - SVC_TRANSACTION_URL=http://svc-transaction-test:4001
+      - POSTGRES_URL=postgres://test_user:test_password@postgres-test:5432/temporal_flow_demo_test_db
+      - TEMPORAL_URL=temporal-server-test:7233
+    networks:
+      - temporal-flow-demo-test
+    volumes:
+      - ./integration-tests/results:/app/results
+    command: ["./run-integration-tests.sh"]
+
+networks:
+  temporal-flow-demo-test:
+    driver: bridge
+    name: temporal-flow-demo-test
+
+volumes:
+  postgres-test-data:
