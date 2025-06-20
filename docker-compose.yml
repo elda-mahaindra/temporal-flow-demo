@@ -64,6 +64,48 @@ services:
       - "8080:8080"
     restart: unless-stopped
 
+  # Observability Services
+  prometheus:
+    container_name: prometheus
+    image: prom/prometheus:v2.45.0
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--storage.tsdb.path=/prometheus"
+      - "--web.console.libraries=/etc/prometheus/console_libraries"
+      - "--web.console.templates=/etc/prometheus/consoles"
+      - "--storage.tsdb.retention.time=30d"
+      - "--web.enable-lifecycle"
+      - "--web.enable-admin-api"
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./observability/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus-data:/prometheus
+    networks:
+      - temporal-flow-demo
+    restart: unless-stopped
+
+  grafana:
+    container_name: grafana
+    image: grafana/grafana:10.0.0
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_USERS_ALLOW_SIGN_UP=false
+      - GF_SERVER_ROOT_URL=http://localhost:3001
+    ports:
+      - "3001:3000"
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ./observability/grafana/provisioning:/etc/grafana/provisioning
+      - ./observability/grafana/dashboards:/var/lib/grafana/dashboards
+    networks:
+      - temporal-flow-demo
+    depends_on:
+      - prometheus
+    restart: unless-stopped
+
+  # Application Services
   svc-transaction:
     build: ./svc-transaction
     image: svc-transaction
@@ -76,6 +118,9 @@ services:
       - temporal-server
     networks:
       - temporal-flow-demo
+    ports:
+      - "4001:4001" # REST API (health, failure-simulation, compensation-audit)
+      - "8081:8080" # Metrics endpoint for Prometheus
 
   svc-balance:
     build: ./svc-balance
@@ -89,6 +134,9 @@ services:
       - temporal-server
     networks:
       - temporal-flow-demo
+    ports:
+      - "4000:4000" # REST API (health, failure-simulation)
+      - "8082:8080" # Metrics endpoint for Prometheus
 
   flowngine:
     build: ./flowngine
@@ -97,6 +145,7 @@ services:
     restart: unless-stopped
     ports:
       - "50051:50051"
+      - "8083:8080" # Metrics endpoint
     volumes:
       - ./flowngine/config.json:/app/config.json
     depends_on:
@@ -113,6 +162,7 @@ services:
     restart: unless-stopped
     ports:
       - "4000:4000"
+      - "8084:8080" # Metrics endpoint
     volumes:
       - ./api-gateway/config.json:/app/config.json
     depends_on:
@@ -130,3 +180,5 @@ networks:
 
 volumes:
   postgres-data:
+  prometheus-data:
+  grafana-data:

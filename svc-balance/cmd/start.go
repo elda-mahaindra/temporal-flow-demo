@@ -109,6 +109,18 @@ func start() {
 		}
 	}()
 
+	// --- Init metrics server for Prometheus ---
+	metricsServer := NewMetricsServer(logger, 8080)
+	go func() {
+		if err := metricsServer.Start(ctx); err != nil {
+			logger.WithFields(logrus.Fields{
+				"[op]":  op,
+				"error": err.Error(),
+			}).Error("Metrics server failed")
+			cancel()
+		}
+	}()
+
 	// --- Init api layer ---
 	restApi := api.NewApi(logger, balanceService)
 

@@ -1,0 +1,12 @@
+apiVersion: 1
+
+# TEMP-010: Observability Enhancement
+# Grafana dashboard provisioning for Temporal Flow Demo
+
+providers:
+  - name: "temporal-flow-demo"
+    type: file
+    updateIntervalSeconds: 30
+    options:
+      path: /var/lib/grafana/dashboards
+      foldersFromFilesStructure: true

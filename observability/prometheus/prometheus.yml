@@ -1,0 +1,67 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+# TEMP-010: Observability Enhancement
+# Prometheus configuration for Temporal Flow Demo monitoring
+
+rule_files:
+  # - "first_rules.yml"
+  # - "second_rules.yml"
+
+scrape_configs:
+  # Prometheus itself
+  - job_name: "prometheus"
+    static_configs:
+      - targets: ["localhost:9090"]
+
+  # Temporal Server metrics
+  - job_name: "temporal-server"
+    static_configs:
+      - targets: ["temporal-server:7233"]
+    metrics_path: "/metrics"
+    scrape_interval: 30s
+    scrape_timeout: 10s
+
+  # API Gateway metrics
+  - job_name: "api-gateway"
+    static_configs:
+      - targets: ["api-gateway:8080"]
+    metrics_path: "/metrics"
+    scrape_interval: 15s
+    scrape_timeout: 10s
+
+  # FlowEngine metrics
+  - job_name: "flowngine"
+    static_configs:
+      - targets: ["flowngine:8080"]
+    metrics_path: "/metrics"
+    scrape_interval: 15s
+    scrape_timeout: 10s
+
+  # Transaction Service metrics
+  - job_name: "svc-transaction"
+    static_configs:
+      - targets: ["svc-transaction:8080"]
+    metrics_path: "/metrics"
+    scrape_interval: 15s
+    scrape_timeout: 10s
+
+  # Balance Service metrics
+  - job_name: "svc-balance"
+    static_configs:
+      - targets: ["svc-balance:8080"]
+    metrics_path: "/metrics"
+    scrape_interval: 15s
+    scrape_timeout: 10s
+
+  # PostgreSQL metrics (if postgres_exporter is added later)
+  # - job_name: 'postgres'
+  #   static_configs:
+  #     - targets: ['postgres-exporter:9187']
+# Alerting configuration (future enhancement)
+# alerting:
+#   alertmanagers:
+#     - static_configs:
+#         - targets:
+#           # - alertmanager:9093

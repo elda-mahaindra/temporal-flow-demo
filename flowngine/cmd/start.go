@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"os"
@@ -42,6 +43,10 @@ func start() {
 		"config": fmt.Sprintf("%+v", config),
 	}).Infof("Starting '%s' service ...", config.App.Name)
 
+	// --- Create context for graceful shutdown ---
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
 	// --- Init Temporal client ---
 	temporalClient, err := createTemporalClient(config.Temporal)
 	if err != nil {
@@ -59,6 +64,18 @@ func start() {
 	// --- Init service layer ---
 	service := service.NewService(logger, config, temporalClient)
 
+	// --- Init metrics server for Prometheus ---
+	metricsServer := NewMetricsServer(logger, 8080)
+	go func() {
+		if err := metricsServer.Start(ctx); err != nil {
+			logger.WithFields(logrus.Fields{
+				"[op]":  op,
+				"error": err.Error(),
+			}).Error("Metrics server failed")
+			cancel()
+		}
+	}()
+
 	// --- Init api layer ---
 	api := api.NewApi(logger, service)
 
@@ -71,6 +88,9 @@ func start() {
 
 	// --- Block until signal is received ---
 	<-ch
+
+	logger.Info("Shutdown signal received, stopping servers...")
+	cancel()
 
 	log.Printf("end of program...")
 }
