@@ -64,6 +64,12 @@ func (api *Activity) DebitAccount(ctx context.Context, params DebitAccountActivi
 
 	logger.WithField("message", "Starting DebitAccount activity").Info()
 
+	// FAILURE SIMULATION: Check if we should inject a failure
+	if err := api.service.SimulateFailure(ctx, "DebitAccount", params.AccountID); err != nil {
+		logger.WithError(err).Warn("🚨 Transaction failure simulation triggered")
+		return nil, err
+	}
+
 	// Parse account ID
 	accountID, err := uuid.Parse(params.AccountID)
 	if err != nil {

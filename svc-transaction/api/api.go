@@ -33,5 +33,11 @@ func (api *Api) SetupRoutes(app *fiber.App) *fiber.App {
 	health := app.Group("/health")
 	health.Get("/", api.Health)
 
+	// Failure Simulation Routes (for testing and monitoring)
+	failureSimulation := app.Group("/failure-simulation")
+	failureSimulation.Get("/stats", api.GetFailureSimulationStats)
+	failureSimulation.Post("/reset", api.ResetFailureSimulation)
+	failureSimulation.Get("/scenarios", api.GetLearningScenarios)
+
 	return app
 }
