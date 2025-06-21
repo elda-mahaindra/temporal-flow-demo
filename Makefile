@@ -1,28 +1,15 @@
 # Development environment commands
 dev-up:
-	docker-compose -f docker-compose.yml up -d
+	docker compose -f docker-compose.yml up -d
 
 dev-down:
-	docker-compose -f docker-compose.yml down
+	docker compose -f docker-compose.yml down
 
 dev-down-volumes:
-	docker-compose -f docker-compose.yml down -v
+	docker compose -f docker-compose.yml down -v
 
-# Integration testing commands
-test-integration:
-	docker-compose -f docker-compose.yml -f integration-tests/docker-compose.test.yml up --build --abort-on-container-exit integration-tests
-
-test-integration-up:
-	docker-compose -f docker-compose.yml -f integration-tests/docker-compose.test.yml up -d
-
-test-integration-down:
-	docker-compose -f docker-compose.yml -f integration-tests/docker-compose.test.yml down
-
-test-integration-down-volumes:
-	docker-compose -f docker-compose.yml -f integration-tests/docker-compose.test.yml down -v
-
-test-integration-logs:
-	docker logs integration-tests
+dev-logs:
+	docker compose -f docker-compose.yml logs -f
 
 # Helper commands
 help:
@@ -32,12 +19,14 @@ help:
 	@echo "  dev-up                    - Start development environment in detached mode"
 	@echo "  dev-down                  - Stop development environment"
 	@echo "  dev-down-volumes          - Stop development environment and remove volumes"
+	@echo "  dev-logs                  - View logs from all services"
 	@echo ""
-	@echo "Integration Testing:"
-	@echo "  test-integration          - Run integration tests (build, run, exit)"
-	@echo "  test-integration-up       - Start integration test environment"
-	@echo "  test-integration-down     - Stop integration test environment"
-	@echo "  test-integration-down-volumes - Stop integration test environment and remove volumes"
-	@echo "  test-integration-logs     - View integration test logs"
+	@echo "Manual Testing:"
+	@echo "  See docs/manual_testing_guide.md for comprehensive testing scenarios"
+	@echo ""
+	@echo "Monitoring:"
+	@echo "  Temporal UI:    http://localhost:8080"
+	@echo "  Grafana:        http://localhost:3001 (admin/admin)"
+	@echo "  Prometheus:     http://localhost:9090"
 
-.PHONY: dev-up dev-down dev-down-volumes test-integration test-integration-up test-integration-down test-integration-down-volumes test-integration-logs help
+.PHONY: dev-up dev-down dev-down-volumes dev-logs help

@@ -32,7 +32,7 @@ This directory contains the observability configuration for the Temporal Flow De
 ### 1. Start the Complete Stack
 ```bash
 cd /path/to/temporal-flow-demo
-docker-compose up -d
+docker compose up -d
 ```
 
 ### 2. Access Observability Dashboards
@@ -147,11 +147,11 @@ histogram_quantile(0.95, rate(http_request_duration_seconds_bucket[5m]))
    - Check network connectivity between containers
 
 2. **Temporal UI Connection Issues**:
-   - Verify Temporal server is running: `docker-compose ps temporal-server`
-   - Check Temporal server logs: `docker-compose logs temporal-server`
+   - Verify Temporal server is running: `docker compose ps temporal-server`
+- Check Temporal server logs: `docker compose logs temporal-server`
 
 3. **Dashboard Not Loading**:
-   - Check Grafana logs: `docker-compose logs grafana`
+   - Check Grafana logs: `docker compose logs grafana`
    - Verify dashboard provisioning: `/var/lib/grafana/dashboards/`
 
 ### Debug Commands
@@ -166,9 +166,9 @@ curl http://localhost:8081/metrics  # Transaction Service
 curl http://localhost:8082/metrics  # Balance Service
 
 # View container logs
-docker-compose logs -f prometheus
-docker-compose logs -f grafana
-docker-compose logs -f temporal-ui
+docker compose logs -f prometheus
+docker compose logs -f grafana
+docker compose logs -f temporal-ui
 ```
 
 ## 📈 Performance Optimization Integration
