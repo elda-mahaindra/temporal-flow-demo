@@ -42,6 +42,15 @@ func (svc *Service) GetTransferStatus(ctx context.Context, params *GetTransferSt
 
 	logger.Info("Getting transfer status")
 
+	// Check if Temporal client is available
+	if svc.temporalClient == nil {
+		err := fmt.Errorf("temporal client not available - service is starting up")
+
+		logger.WithError(err).Warn("GetTransferStatus request received but Temporal client not ready")
+
+		return nil, err
+	}
+
 	// Validate input parameters
 	if err := validateGetTransferStatusParams(params); err != nil {
 		err = fmt.Errorf("invalid parameters: %w", err)

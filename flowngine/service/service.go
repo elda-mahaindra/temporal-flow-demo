@@ -53,3 +53,8 @@ func (s *Service) GetActivityOptions() workflow.ActivityOptions {
 		},
 	}
 }
+
+// SetTemporalClient updates the Temporal client (used for delayed connection)
+func (s *Service) SetTemporalClient(temporalClient client.Client) {
+	s.temporalClient = temporalClient
+}

@@ -6,6 +6,7 @@ import (
 	"log"
 	"os"
 	"os/signal"
+	"time"
 
 	"flowngine/api"
 	"flowngine/service"
@@ -47,23 +48,6 @@ func start() {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	// --- Init Temporal client ---
-	temporalClient, err := createTemporalClient(config.Temporal)
-	if err != nil {
-		logger.WithFields(logrus.Fields{
-			"[op]":  op,
-			"error": err.Error(),
-		}).Error()
-
-		os.Exit(1)
-	}
-	defer temporalClient.Close()
-
-	logger.Info("🎉 Temporal client initialized - ready for workflow orchestration!")
-
-	// --- Init service layer ---
-	service := service.NewService(logger, config, temporalClient)
-
 	// --- Init metrics server for Prometheus ---
 	metricsServer := NewMetricsServer(logger, 8080)
 	go func() {
@@ -76,11 +60,47 @@ func start() {
 		}
 	}()
 
+	// --- Init service layer with nil Temporal client initially ---
+	service := service.NewService(logger, config, nil)
+
 	// --- Init api layer ---
 	api := api.NewApi(logger, service)
 
-	// --- Run server(s) ---
-	runGrpcServer(config.App.Port, api)
+	// --- Start gRPC server in background ---
+	go runGrpcServer(config.App.Port, api)
+
+	logger.WithField("port", config.App.Port).Info("🚀 gRPC server started - ready to accept requests!")
+
+	// --- Connect to Temporal in background with retry ---
+	go func() {
+		for {
+			temporalClient, err := createTemporalClient(config.Temporal)
+			if err != nil {
+				logger.WithFields(logrus.Fields{
+					"[op]":  op,
+					"error": err.Error(),
+				}).Warn("Failed to create Temporal client, retrying in 5 seconds...")
+
+				select {
+				case <-ctx.Done():
+					return
+				case <-time.After(5 * time.Second):
+					continue
+				}
+			}
+
+			// Successfully connected to Temporal
+			logger.Info("🎉 Temporal client initialized - ready for workflow orchestration!")
+
+			// Update service with Temporal client
+			service.SetTemporalClient(temporalClient)
+
+			// Keep the connection alive until context is cancelled
+			<-ctx.Done()
+			temporalClient.Close()
+			return
+		}
+	}()
 
 	// --- Wait for signal ---
 	ch := make(chan os.Signal, 1)

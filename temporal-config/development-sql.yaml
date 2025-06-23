@@ -29,3 +29,13 @@ system.standardVisibilityPersistenceMaxReadQPS:
 system.standardVisibilityPersistenceMaxWriteQPS:
   - value: 9000
     constraints: {}
+
+# Fix for "context deadline exceeded" errors
+# Increase connection age to prevent premature connection closures
+frontend.keepAliveMaxConnectionAge:
+  - value: 24h
+    constraints: {}
+
+frontend.keepAliveMaxConnectionAgeGrace:
+  - value: 70s
+    constraints: {}

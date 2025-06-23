@@ -24,7 +24,7 @@ FROM alpine:latest
 
 # Install additional packages needed for the application
 RUN apk update && apk upgrade && \
-     apk add --no-cache bash git openssh
+     apk add --no-cache bash git openssh curl
 
 # Set the working directory for the application
 WORKDIR /app

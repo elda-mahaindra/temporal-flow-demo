@@ -6,6 +6,7 @@ import (
 	"log"
 	"os"
 	"os/signal"
+	"time"
 
 	"svc-transaction/activity"
 	"svc-transaction/api"
@@ -44,7 +45,7 @@ func start() {
 	logger.WithFields(logrus.Fields{
 		"[op]":   op,
 		"config": fmt.Sprintf("%+v", config),
-	}).Infof("Starting '%s' Temporal worker ...", config.App.Name)
+	}).Infof("Starting '%s' service ...", config.App.Name)
 
 	// --- Init postgres pool ---
 	postgresPool, err := createPostgresPool(logger, config.DB.Postgres)
@@ -66,48 +67,9 @@ func start() {
 	// --- Init activity ---
 	activity := activity.NewActivity(logger, transactionService)
 
-	// --- Init temporal client ---
-	temporalClient, err := createTemporalClient(logger, config.Temporal)
-	if err != nil {
-		logger.WithFields(logrus.Fields{
-			"[op]":  op,
-			"error": err.Error(),
-		}).Error("Failed to create Temporal client")
-
-		os.Exit(1)
-	}
-
-	// --- Init worker ---
-	temporalWorker, err := worker.NewWorker(
-		logger,
-		temporalClient,
-		config.Temporal.TaskQueue,
-		activity,
-		config.Temporal,
-	)
-	if err != nil {
-		logger.WithFields(logrus.Fields{
-			"[op]":  op,
-			"error": err.Error(),
-		}).Error("Failed to create Temporal worker")
-
-		os.Exit(1)
-	}
-
 	// --- Create context for graceful shutdown ---
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-
-	// --- Start Temporal worker following the established pattern ---
-	go func() {
-		if err := temporalWorker.Run(ctx); err != nil {
-			logger.WithFields(logrus.Fields{
-				"[op]":  op,
-				"error": err.Error(),
-			}).Error("Temporal worker failed")
-			cancel()
-		}
-	}()
 
 	// --- Init metrics server for Prometheus ---
 	metricsServer := NewMetricsServer(logger, 8080)
@@ -124,21 +86,82 @@ func start() {
 	// --- Init api layer ---
 	restApi := api.NewApi(logger, transactionService)
 
-	// --- Run servers ---
-	runRestServer(config.App.Port, restApi)
+	// --- Start REST server in a goroutine ---
+	go func() {
+		runRestServer(config.App.Port, restApi)
+	}()
+
+	// --- Init temporal client and worker in a separate goroutine ---
+	go func() {
+		logger.Info("Attempting to connect to Temporal...")
+
+		// Retry connecting to Temporal
+		for {
+			temporalClient, err := createTemporalClient(logger, config.Temporal)
+			if err != nil {
+				logger.WithFields(logrus.Fields{
+					"[op]":  op,
+					"error": err.Error(),
+				}).Warn("Failed to create Temporal client, retrying in 5 seconds...")
+
+				select {
+				case <-ctx.Done():
+					return
+				case <-time.After(5 * time.Second):
+					continue
+				}
+			}
+
+			// --- Init worker ---
+			temporalWorker, err := worker.NewWorker(
+				logger,
+				temporalClient,
+				config.Temporal.TaskQueue,
+				activity,
+				config.Temporal,
+			)
+			if err != nil {
+				logger.WithFields(logrus.Fields{
+					"[op]":  op,
+					"error": err.Error(),
+				}).Error("Failed to create Temporal worker")
+				temporalClient.Close()
+
+				select {
+				case <-ctx.Done():
+					return
+				case <-time.After(5 * time.Second):
+					continue
+				}
+			}
+
+			logger.Info("Temporal worker connected successfully")
+
+			// --- Start Temporal worker ---
+			if err := temporalWorker.Run(ctx); err != nil {
+				logger.WithFields(logrus.Fields{
+					"[op]":  op,
+					"error": err.Error(),
+				}).Error("Temporal worker failed")
+				temporalWorker.Stop()
+				temporalClient.Close()
+			}
+
+			return
+		}
+	}()
 
 	// --- Wait for signal ---
 	ch := make(chan os.Signal, 1)
 	signal.Notify(ch, os.Interrupt)
 
-	logger.Info("Transaction service Temporal worker is running. Press Ctrl+C to exit.")
+	logger.Info("Transaction service is running. Press Ctrl+C to exit.")
 
 	// --- Block until signal is received ---
 	<-ch
 
-	logger.Info("Shutdown signal received, stopping worker...")
+	logger.Info("Shutdown signal received, stopping service...")
 	cancel()
-	temporalWorker.Stop()
 
-	log.Printf("Transaction service worker stopped gracefully")
+	log.Printf("Transaction service stopped gracefully")
 }

@@ -8,13 +8,12 @@ import (
 )
 
 func createTemporalClient(config config.Temporal) (client.Client, error) {
-	hostPort := fmt.Sprintf("%s:%d", config.Host, config.Port)
-
 	temporalClient, err := client.Dial(client.Options{
-		HostPort: hostPort,
+		HostPort:  config.HostPort,
+		Namespace: config.Namespace,
 	})
 	if err != nil {
-		return nil, fmt.Errorf("error connecting to %s grpc server: %w", hostPort, err)
+		return nil, fmt.Errorf("error connecting to %s grpc server: %w", config.HostPort, err)
 	}
 
 	return temporalClient, nil

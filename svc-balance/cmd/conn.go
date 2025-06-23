@@ -9,6 +9,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/sirupsen/logrus"
 	"go.temporal.io/sdk/client"
+	"google.golang.org/grpc"
 )
 
 func createPostgresPool(
@@ -63,9 +64,19 @@ func createTemporalClient(
 ) (client.Client, error) {
 	const op = "main.createTemporalClient"
 
+	logger.WithFields(logrus.Fields{
+		"host_port": temporalConfig.HostPort,
+		"namespace": temporalConfig.Namespace,
+	}).Info("Attempting to create Temporal client...")
+
 	temporalClient, err := client.Dial(client.Options{
 		HostPort:  temporalConfig.HostPort,
 		Namespace: temporalConfig.Namespace,
+		ConnectionOptions: client.ConnectionOptions{
+			DialOptions: []grpc.DialOption{
+				grpc.WithInsecure(),
+			},
+		},
 	})
 	if err != nil {
 		err = fmt.Errorf("failed to create Temporal client: %w", err)
@@ -77,6 +88,11 @@ func createTemporalClient(
 
 		return nil, err
 	}
+
+	logger.WithFields(logrus.Fields{
+		"host_port": temporalConfig.HostPort,
+		"namespace": temporalConfig.Namespace,
+	}).Info("Temporal client created successfully")
 
 	return temporalClient, nil
 }

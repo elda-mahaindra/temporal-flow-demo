@@ -12,6 +12,7 @@ require (
 	github.com/stretchr/testify v1.10.0
 	go.temporal.io/api v1.46.0
 	go.temporal.io/sdk v1.34.0
+	google.golang.org/grpc v1.67.3
 )
 
 require (
@@ -56,7 +57,6 @@ require (
 	golang.org/x/time v0.8.0 // indirect
 	google.golang.org/genproto/googleapis/api v0.0.0-20241209162323-e6fa225c2576 // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20241223144023-3abc09e42ca8 // indirect
-	google.golang.org/grpc v1.67.3 // indirect
 	google.golang.org/protobuf v1.36.5 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )

@@ -2,7 +2,7 @@
   "app": {
     "name": "svc-balance",
     "host": "0.0.0.0",
-    "port": 4000
+    "port": 4020
   },
   "db": {
     "postgres": {

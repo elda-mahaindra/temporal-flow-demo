@@ -14,12 +14,18 @@ services:
     restart: unless-stopped
     networks:
       - temporal-flow-demo
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d temporal_flow_demo_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
 
   # Temporal services
   temporal-server:
     container_name: temporal-server
     depends_on:
-      - postgres
+      postgres:
+        condition: service_healthy
     environment:
       - DB=postgresql
       - DB_PORT=5432
@@ -35,11 +41,25 @@ services:
     volumes:
       - ./temporal-config:/etc/temporal/config/dynamicconfig
     restart: unless-stopped
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "tctl",
+          "--address",
+          "temporal-server:7233",
+          "cluster",
+          "health",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   temporal-admin-tools:
     container_name: temporal-admin-tools
     depends_on:
-      - temporal-server
+      temporal-server:
+        condition: service_healthy
     environment:
       - TEMPORAL_ADDRESS=temporal-server:7233
       - TEMPORAL_CLI_ADDRESS=temporal-server:7233
@@ -53,7 +73,8 @@ services:
   temporal-ui:
     container_name: temporal-ui
     depends_on:
-      - temporal-server
+      temporal-server:
+        condition: service_healthy
     environment:
       - TEMPORAL_ADDRESS=temporal-server:7233
       - TEMPORAL_CORS_ORIGINS=http://localhost:3000
@@ -119,8 +140,13 @@ services:
     networks:
       - temporal-flow-demo
     ports:
-      - "4001:4001" # REST API (health, failure-simulation, compensation-audit)
+      - "4010:4010" # REST API (health, failure-simulation, compensation-audit)
       - "8081:8080" # Metrics endpoint for Prometheus
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:4010/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
 
   svc-balance:
     build: ./svc-balance
@@ -135,8 +161,13 @@ services:
     networks:
       - temporal-flow-demo
     ports:
-      - "4000:4000" # REST API (health, failure-simulation)
+      - "4020:4020" # REST API (health, failure-simulation)
       - "8082:8080" # Metrics endpoint for Prometheus
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:4020/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
 
   flowngine:
     build: ./flowngine
@@ -166,12 +197,14 @@ services:
     volumes:
       - ./api-gateway/config.json:/app/config.json
     depends_on:
-      - svc-transaction
-      - svc-balance
       - flowngine
-      - temporal-server
     networks:
       - temporal-flow-demo
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:4000/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
 
 networks:
   temporal-flow-demo:

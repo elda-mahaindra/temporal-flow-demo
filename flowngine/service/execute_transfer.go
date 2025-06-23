@@ -44,6 +44,15 @@ func (svc *Service) ExecuteTransfer(ctx context.Context, params *ExecuteTransfer
 
 	logger.Info("Starting transfer execution", "sync_mode", params.WaitForCompletion)
 
+	// Check if Temporal client is available
+	if svc.temporalClient == nil {
+		err := fmt.Errorf("temporal client not available - service is starting up")
+
+		logger.WithError(err).Warn("Transfer request received but Temporal client not ready")
+
+		return nil, err
+	}
+
 	// Validate input parameters
 	if err := validateExecuteTransferParams(params); err != nil {
 		err = fmt.Errorf("invalid parameters: %w", err)

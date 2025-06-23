@@ -11,8 +11,8 @@ type App struct {
 // Temporal config
 
 type Temporal struct {
-	Host            string                  `mapstructure:"host"`
-	Port            int                     `mapstructure:"port"`
+	HostPort        string                  `mapstructure:"host_port"`
+	Namespace       string                  `mapstructure:"namespace"`
 	ActivityOptions TemporalActivityOptions `mapstructure:"activity_options"`
 }
 
